@@ -1,8 +1,11 @@
+"""
+Adpated from code written by chentir
+"""
 import pyvisa
 import nidaqmx
 
 rm = pyvisa.ResourceManager() 
-listing = rm.list_resources() # List of detected connections
+listing = rm.list_resources()
 system = nidaqmx.system.System.local()
 
 def get_address_IL():
@@ -16,11 +19,11 @@ def get_address_IL():
     print("##############################################")
     print("Present GPIB instruments")
 
-    tools=[i for i in listing if 'GPIB' in i] # Take only GPIB connections
+    tools=[i for i in listing if 'GPIB' in i]
 
     for i in range(len(tools)):
-        buffer = rm.open_resource(tools[i], read_termination = '\r\n')      # Store GPIB intruments in a buffer
-        print(i+1, ": ", buffer.query('*IDN?'))                             # Display GPIB instrument IDs
+        buffer = rm.open_resource(tools[i], read_termination = '\r\n')
+        print(i+1, ": ", buffer.query('*IDN?'))
 
     print('')
     print("##############################################")

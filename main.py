@@ -9,164 +9,163 @@ import logging
 from RP_TSL770.sts import sts
 from RP_TSL770.error_handling.error_handling import exception_handler, formatter
 
-if __name__ == "__main__":
-    logger = logging.getLogger(__name__)
-    logger.setLevel(logging.DEBUG)
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
 
-    error_handler = logging.FileHandler(f"./logs/{__name__}_info.log")
-    event_handler = logging.FileHandler(f"./logs/{__name__}_errors.log")
+error_handler = logging.FileHandler(f"./logs/{__name__}_info.log")
+event_handler = logging.FileHandler(f"./logs/{__name__}_errors.log")
 
-    error_handler.setLevel(logging.ERROR)
-    error_handler.setFormatter(formatter)
-    logger.addHandler(error_handler)
+error_handler.setLevel(logging.ERROR)
+error_handler.setFormatter(formatter)
+logger.addHandler(error_handler)
 
-    event_handler.setLevel(logging.INFO)
-    event_handler.setFormatter(formatter)
-    logger.addHandler(event_handler)
+event_handler.setLevel(logging.INFO)
+event_handler.setFormatter(formatter)
+logger.addHandler(event_handler)
 
 
-    inputs = ["st", "en", "sp", "pw"]
-    wave = []
-    data = []
-    toggle = {True: "Looping On", False: "Looping Off"}
-    loop_state = False
+inputs = ["st", "en", "sp", "pw"]
+wave = []
+data = []
+toggle = {True: "Looping On", False: "Looping Off"}
+loop_state = False
+sweep_state = False
+wavelength_spin_value = 1500
+
+def sweep_plot(window, values, figure_canvas_agg, fig):
+    global sweep_state
+    sweep_state = True
+
+    window["sweepButton"].update("Sweeping...")
+
+    params = sts.TSL770.sweep_parameters_class(
+        values["stSlider"],
+        values["enSlider"],
+        values["spSlider"],
+        values["pwSlider"]
+    )
+
+    sts.set_sweep_parameters(params)
+    data, acquisition_time = sts.sweep_STS()
+
+    window["sweepButton"].update("Begin Sweep")
+
+    update_figure(figure_canvas_agg, data, acquisition_time, params, fig)
+
     sweep_state = False
-    wavelength_spin_value = 1500
 
-    def sweep_plot(window, values, figure_canvas_agg, fig):
-        global sweep_state
+def sweep_loop(window, values, figure_canvas_agg, fig):
+    global sweep_state
+
+    while True:
         sweep_state = True
+        sts.time.sleep(1)
+        sweep_plot(window, values, figure_canvas_agg, fig)
+        if not loop_state:
+            break
 
-        window["sweepButton"].update("Sweeping...")
-
-        params = sts.TSL770.sweep_parameters_class(
-            values["stSlider"],
-            values["enSlider"],
-            values["spSlider"],
-            values["pwSlider"]
-        )
-
-        sts.set_sweep_parameters(params)
-        data, acquisition_time = sts.sweep_STS()
-
-        window["sweepButton"].update("Begin Sweep")
-
-        update_figure(figure_canvas_agg, data, acquisition_time, params, fig)
-
-        sweep_state = False
-
-    def sweep_loop(window, values, figure_canvas_agg, fig):
-        global sweep_state
-
-        while True:
-            sweep_state = True
-            sts.time.sleep(1)
-            sweep_plot(window, values, figure_canvas_agg, fig)
-            if not loop_state:
-                break
-
-    def plot_data(y_data, acquisition_time: float | int, params: list[float | int]):
-        global wave
-        global data
-        print("Plot params:", params)
-        """Plots the data.
+def plot_data(y_data, acquisition_time: float | int, params: list[float | int]):
+    global wave
+    global data
+    print("Plot params:", params)
+    """Plots the data.
+    
+    ### Parameters
+        data : np.array(list[float])
+            The ouput data in V.
         
-        ### Parameters
-            data : np.array(list[float])
-                The ouput data in V.
-            
-            acquisition_time : float | int
-                The total data acquisition time.
+        acquisition_time : float | int
+            The total data acquisition time.
 
-            params : list[float | int]
-                A list containing the sweep parameters, 
-                of the the form [minwave, maxwave, speed, power].
-        """
-        t = np.linspace(0, acquisition_time, len(y_data))
-        print(t)
-        print(acquisition_time)
-        print(len(data))
-        t = [val 
-            for val in t 
-            if val >= acquisition_time - (params[1] - params[0])/params[2]]
-        wave = params[1] + params[2]*(t - t[-1])
-        data = y_data[-len(wave):]
-        plt.grid(True)
-        plt.title("Wavelength Sweep")
-        plt.xlabel("Wavelength (nm)")
-        plt.ylabel("Voltage (V)")
-        plt.plot(wave, data)
-        return 
+        params : list[float | int]
+            A list containing the sweep parameters, 
+            of the the form [minwave, maxwave, speed, power].
+    """
+    t = np.linspace(0, acquisition_time, len(y_data))
+    print(t)
+    print(acquisition_time)
+    print(len(data))
+    t = [val 
+        for val in t 
+        if val >= acquisition_time - (params[1] - params[0])/params[2]]
+    wave = params[1] + params[2]*(t - t[-1])
+    data = y_data[-len(wave):]
+    plt.grid(True)
+    plt.title("Wavelength Sweep")
+    plt.xlabel("Wavelength (nm)")
+    plt.ylabel("Voltage (V)")
+    plt.plot(wave, data)
+    return 
 
-    def bind(win, element_type, bind_from, bind_to):
-        """Binds element events.
+def bind(win, element_type, bind_from, bind_to):
+    """Binds element events.
 
-        ### Parameters
-            win : (class) Window
-                PySimpleGUI Window.
+    ### Parameters
+        win : (class) Window
+            PySimpleGUI Window.
 
-            element_type : str
-                Element type (eg. slider or button).
+        element_type : str
+            Element type (eg. slider or button).
 
-            bind_from : str
-                Event to bind.
+        bind_from : str
+            Event to bind.
 
-            bind_to : str
-                What the event binds to.
-        """
-        inputs = ["st", "en", "sp", "pw", "wave"]
-        for inp in inputs:
-            win[inp + element_type].bind(bind_from, bind_to)
+        bind_to : str
+            What the event binds to.
+    """
+    inputs = ["st", "en", "sp", "pw", "wave"]
+    for inp in inputs:
+        win[inp + element_type].bind(bind_from, bind_to)
 
-    def draw_figure(figure_canvas_agg):
-        """ Draws the figure onto the canvas.
+def draw_figure(figure_canvas_agg):
+    """ Draws the figure onto the canvas.
+    
+    ### Parameters
+        figure_canvas_agg : (class) FigureCanvasTkAgg
+            The canvas that the current matplotlib.pyplot figure is drawn on.
+    """
+    figure_canvas_agg.draw()
+    figure_canvas_agg.get_tk_widget().pack(side='top', fill='both', expand=1)
+    return figure_canvas_agg
+
+def delete_figure(figure_canvas_agg, fig):
+    """ Clears the current canvas.
+    
+    ### Parameters
+        figure_canvas_agg : (class) FigureCanvasTkAgg
+            The canvas to be cleared.
+
+        fig : (class) Figure
+            The matplotlib.pyplot figure drawn on the canvas.
+    """
+    figure_canvas_agg.get_tk_widget().forget()
+    fig.clf()
+
+def update_figure(figure_canvas_agg, data, acquisition_time, params, fig):
+    """ Updates the figure on the canvas.
+
+    ### Parameters
+        figure_canvas_agg : (class) FigureCanvasTkAgg
+            The canvas to be updated
+
+        data : np.array(list[float])
+            The data to be plotted.
         
-        ### Parameters
-            figure_canvas_agg : (class) FigureCanvasTkAgg
-                The canvas that the current matplotlib.pyplot figure is drawn on.
-        """
-        figure_canvas_agg.draw()
-        figure_canvas_agg.get_tk_widget().pack(side='top', fill='both', expand=1)
-        return figure_canvas_agg
+        acquisition_time : float | int
+            The total data acquisition time.
 
-    def delete_figure(figure_canvas_agg, fig):
-        """ Clears the current canvas.
-        
-        ### Parameters
-            figure_canvas_agg : (class) FigureCanvasTkAgg
-                The canvas to be cleared.
+        params : list[float | int]
+            A list containing the sweep parameters, 
+            of the the form [minwave, maxwave, speed, power].
 
-            fig : (class) Figure
-                The matplotlib.pyplot figure drawn on the canvas.
-        """
-        figure_canvas_agg.get_tk_widget().forget()
-        fig.clf()
+        fig : (class) Figure
+            The matplotlib.pyplot Figure that the data is plotted on.
+    """
+    delete_figure(figure_canvas_agg, fig)
+    plot_data(data, acquisition_time, params)
+    draw_figure(figure_canvas_agg)
 
-    def update_figure(figure_canvas_agg, data, acquisition_time, params, fig):
-        """ Updates the figure on the canvas.
-
-        ### Parameters
-            figure_canvas_agg : (class) FigureCanvasTkAgg
-                The canvas to be updated
-
-            data : np.array(list[float])
-                The data to be plotted.
-            
-            acquisition_time : float | int
-                The total data acquisition time.
-
-            params : list[float | int]
-                A list containing the sweep parameters, 
-                of the the form [minwave, maxwave, speed, power].
-
-            fig : (class) Figure
-                The matplotlib.pyplot Figure that the data is plotted on.
-        """
-        delete_figure(figure_canvas_agg, fig)
-        plot_data(data, acquisition_time, params)
-        draw_figure(figure_canvas_agg)
-
-
+if __name__ == "__main__":
     sg.theme("DarkBlue14")
     """Layout of Inputs (left side of the window)"""
     inputs_column = [

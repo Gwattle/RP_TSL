@@ -219,8 +219,8 @@ if __name__ == "__main__":
             sg.Button("↓", font=("Helvetica", 14))
         ],
         [
-            sg.Text("Step Size (nm)",
-            sg.InputText("1", key="waveInput", size=(10, 1)
+            sg.Text("Step Size (nm)"),
+            sg.InputText("1", key="waveInput", size=(10, 1))
         ],
         [sg.Text("", size=(30, 1), key="-ERROR-", text_color="red"]
     ]

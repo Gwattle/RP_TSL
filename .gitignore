@@ -1,0 +1,7 @@
+Summary.md
+
+__pycache__/
+*.py[cod]
+
+logs
+*.log

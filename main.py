@@ -207,19 +207,29 @@ if __name__ == "__main__":
         ],
         [sg.Button(toggle[False], key = "loopButton")],
         [sg.Button("Begin Sweep", key = "sweepButton")],
-        [sg.Text("Current Wavelength (nm)"), sg.Text("Wavelength Step (nm)")], 
+        [sg.HSeparator()],
         [
-            sg.Spin([i for i in np.arange(1500, 1601, 0.01)], 
-                    key = "waveSpin", 
-                    size = (7, 1), 
-                    enable_events = True), 
-            sg.InputText("1", key = "waveInput", size = (7, 1))
+            sg.Text("Wavelength"),
+            sg.InputText("1550", key="waveSpin", size(10, 1)),
+            sg.Button("Set", key="-SET-")
         ],
-        [sg.Button("Save Data", key = "saveButton")]
+        [
+            sg.Text("Step"),
+            sg.Button("↑", font=("Helvetica", 14)),
+            sg.Button("↓", font=("Helvetica", 14))
+        ],
+        [
+            sg.Text("Step Size (nm)",
+            sg.InputText("1", key="waveInput", size=(10, 1)
+        ],
+        [sg.Text("", size=(30, 1), key="-ERROR-", text_color="red"]
     ]
             
     """Layout of the Plot (right side of the window)"""
-    canvas_column = [[sg.Canvas(key="figCanvas")]]
+    canvas_column = [
+        [sg.Canvas(key="figCanvas")],
+        [sg.Button("Save Data", key="saveButton")]
+    ]
 
     layout = [
         [
@@ -252,16 +262,19 @@ if __name__ == "__main__":
 
     """Event Loop"""
     while True:
-        window["waveSpin"].update(str(wavelength_spin_value))
-        window.refresh()
-
         event, values = window.read()
-        print(event)
 
+        if event == sg.WIN_CLOSED:
+            break
+
+        try:
+            wave_spin_val = float(str(values["waveSpin"]))
+            wave_step = float(str(values["waveInput"]))
+        except:
+            window["-ERROR-"].update("Error: Please enter numeric values")
+            continue
+    
         match event:
-            case sg.WIN_CLOSED:
-                break
-
             case "stInput_Enter":
                 window["stSlider"].update(str(values["stInput"]))
                 continue
@@ -302,12 +315,21 @@ if __name__ == "__main__":
                 window["loopButton"].update(toggle[loop_state])
                 continue
 
-            case "waveSpin":
-                wavelength_spin_value += float(values["waveInput"])
-                wavelength_spin_value = round(wavelength_spin_value, 2)
-                window["waveSpin"].update(str(wavelength_spin_value))
+            case "-SET-":
+                window["waveSpin"].update(round(wave_spin_val, 3))
+                sts.set_wavelength(wave_spin_val)
+                continue
 
-                sts.set_wavelength(wavelength_spin_value)
+            case "↑":
+                wave_spin_val += wave_step
+                window["waveSpin"].update(round(wave_spin_val, 3))
+                sts.set_wavelength(wave_spin_val)
+                continue
+
+            case "↓":
+                wave_spin_val -= wave_step
+                window["waveSpin"].update(round(wave_spin_val, 3))
+                sts.set_wavelength(wave_spin_val)
                 continue
 
             case "saveButton":
@@ -319,3 +341,7 @@ if __name__ == "__main__":
                 else:
                     pd_data.to_csv(filename + ".csv", header = None, index = None)
                 continue
+
+        window["-ERROR-"].update("")
+
+    window.close()
